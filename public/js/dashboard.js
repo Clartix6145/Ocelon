@@ -6,7 +6,6 @@
 const API_BASE = '';
 let currentSessionId = null;
 let charts = {};
-let savedPaymentMethods = {};
 
 // Obtener datos del usuario
 const token = localStorage.getItem('token');
@@ -23,7 +22,6 @@ if (userRole === 'admin') {
     document.getElementById('adminSection').style.display = 'block';
 }
 
-loadSavedPaymentMethods();
 // ========================================
 // UTILIDADES
 // ========================================
