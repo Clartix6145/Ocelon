@@ -504,6 +504,169 @@ document.getElementById('createSessionBtn')?.addEventListener('click', async () 
 // SECCIÓN: PAGOS
 // ========================================
 
+// Gestión de métodos de pago guardados
+const PaymentStorage = {
+    // Obtener método guardado
+    getSavedMethod: function() {
+        const saved = localStorage.getItem(`ocelon_saved_payment_${userId}`);
+        return saved ? JSON.parse(saved) : null;
+    },
+    
+    // Guardar método
+    saveMethod: function(method, data) {
+        const saved = {
+            method: method,
+            data: data,
+            savedAt: new Date().toISOString()
+        };
+        localStorage.setItem(`ocelon_saved_payment_${userId}`, JSON.stringify(saved));
+    },
+    
+    // Limpiar método guardado
+    clearMethod: function() {
+        localStorage.removeItem(`ocelon_saved_payment_${userId}`);
+    }
+};
+
+// Validaciones de campos de pago
+const PaymentValidations = {
+    // Validar tarjeta
+    validarTarjeta: function() {
+        const nombre = document.getElementById('tarjetaNombre').value.trim();
+        const numero = document.getElementById('tarjetaNumero').value.replace(/\s/g, '');
+        const fecha = document.getElementById('tarjetaFecha').value;
+        const cvv = document.getElementById('tarjetaCvv').value;
+        
+        if (!nombre) {
+            window.showToast.warning('Campo requerido', 'Por favor ingresa el nombre del titular');
+            return false;
+        }
+        
+        if (numero.length !== 16 || !/^\d+$/.test(numero)) {
+            window.showToast.warning('Tarjeta inválida', 'El número debe tener 16 dígitos');
+            return false;
+        }
+        
+        if (!fecha || !/^\d{2}\/\d{2}$/.test(fecha)) {
+            window.showToast.warning('Fecha inválida', 'Usa formato MM/YY');
+            return false;
+        }
+        
+        // Validar que la fecha no sea mayor a 5 años
+        const [mes, año] = fecha.split('/');
+        const fechaIngresada = new Date(2000 + parseInt(año), parseInt(mes) - 1);
+        const fechaMaxima = new Date();
+        fechaMaxima.setFullYear(fechaMaxima.getFullYear() + 5);
+        
+        if (fechaIngresada > fechaMaxima) {
+            window.showToast.warning('Fecha de caducidad inválida', 'La fecha no puede ser mayor a 5 años desde hoy');
+            return false;
+        }
+        
+        if (!/^\d{3,4}$/.test(cvv)) {
+            window.showToast.warning('CVV inválido', 'El CVV debe tener 3 o 4 dígitos');
+            return false;
+        }
+        
+        return true;
+    },
+    
+    // Validar wallet
+    validarWallet: function() {
+        const email = document.getElementById('walletEmail').value.trim();
+        const password = document.getElementById('walletPassword').value;
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        
+        if (!email || !emailRegex.test(email)) {
+            window.showToast.warning('Email inválido', 'Por favor ingresa un email válido');
+            return false;
+        }
+        
+        if (!password || password.length < 6) {
+            window.showToast.warning('Contraseña requerida', 'La contraseña debe tener al menos 6 caracteres');
+            return false;
+        }
+        
+        return true;
+    },
+    
+    // Validar transferencia
+    validarTransferencia: function() {
+        const clabe = document.getElementById('transferenciaClabe').value.replace(/\s/g, '');
+        const banco = document.getElementById('transferenciaBanco').value;
+        const beneficiario = document.getElementById('transferenciaBeneficiario').value.trim();
+        
+        if (clabe.length !== 18 || !/^\d+$/.test(clabe)) {
+            window.showToast.warning('CLABE inválida', 'La CLABE debe tener 18 dígitos');
+            return false;
+        }
+        
+        if (!banco) {
+            window.showToast.warning('Banco requerido', 'Por favor selecciona un banco');
+            return false;
+        }
+        
+        if (!beneficiario) {
+            window.showToast.warning('Beneficiario requerido', 'Por favor ingresa el nombre del beneficiario');
+            return false;
+        }
+        
+        return true;
+    }
+};
+
+// Event listener para cambio de método de pago
+document.getElementById('paymentMethod')?.addEventListener('change', function(e) {
+    const method = e.target.value;
+    const saveContainer = document.getElementById('saveMethodContainer');
+    
+    // Ocultar todos los formularios
+    document.querySelectorAll('.payment-method-form').forEach(form => {
+        form.style.display = 'none';
+    });
+    
+    // Mostrar formulario seleccionado
+    if (method === 'tarjeta') {
+        document.getElementById('tarjetaForm').style.display = 'block';
+        saveContainer.style.display = 'block';
+    } else if (method === 'wallet') {
+        document.getElementById('walletForm').style.display = 'block';
+        saveContainer.style.display = 'block';
+    } else if (method === 'transferencia') {
+        document.getElementById('transferenciaForm').style.display = 'block';
+        saveContainer.style.display = 'block';
+    } else {
+        saveContainer.style.display = 'none';
+    }
+});
+
+// Formatear número de tarjeta con espacios
+document.getElementById('tarjetaNumero')?.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\s/g, '').replace(/\D/g, '');
+    let formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+    e.target.value = formatted;
+});
+
+// Formatear fecha de caducidad MM/YY
+document.getElementById('tarjetaFecha')?.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+        value = value.substring(0, 2) + '/' + value.substring(2, 4);
+    }
+    e.target.value = value;
+});
+
+// Permitir solo números en CLABE
+document.getElementById('transferenciaClabe')?.addEventListener('input', function(e) {
+    e.target.value = e.target.value.replace(/\D/g, '');
+});
+
+// Permitir solo números en CVV
+document.getElementById('tarjetaCvv')?.addEventListener('input', function(e) {
+    e.target.value = e.target.value.replace(/\D/g, '');
+});
+
 async function loadPayments() {
     showLoading('paymentsTable');
     
@@ -1658,6 +1821,40 @@ async function openPaymentModal(sessionId) {
                 </div>
             `;
             
+            // Limpiar formulario
+            document.getElementById('paymentForm').reset();
+            document.getElementById('paymentMethod').value = '';
+            document.querySelectorAll('.payment-method-form').forEach(form => {
+                form.style.display = 'none';
+            });
+            document.getElementById('saveMethodContainer').style.display = 'none';
+            
+            // Cargar método guardado si existe
+            const savedMethod = PaymentStorage.getSavedMethod();
+            if (savedMethod) {
+                document.getElementById('paymentMethod').value = savedMethod.method;
+                
+                // Auto-rellenar campos
+                if (savedMethod.method === 'tarjeta') {
+                    document.getElementById('tarjetaForm').style.display = 'block';
+                    document.getElementById('tarjetaNombre').value = savedMethod.data.nombre || '';
+                    document.getElementById('tarjetaNumero').value = savedMethod.data.numero || '';
+                    document.getElementById('tarjetaFecha').value = savedMethod.data.fecha || '';
+                    document.getElementById('tarjetaCvv').value = savedMethod.data.cvv || '';
+                } else if (savedMethod.method === 'wallet') {
+                    document.getElementById('walletForm').style.display = 'block';
+                    document.getElementById('walletEmail').value = savedMethod.data.email || '';
+                    document.getElementById('walletPassword').value = '';
+                    document.getElementById('walletTipo').value = savedMethod.data.tipo || 'paypal';
+                } else if (savedMethod.method === 'transferencia') {
+                    document.getElementById('transferenciaForm').style.display = 'block';
+                    document.getElementById('transferenciaClabe').value = savedMethod.data.clabe || '';
+                    document.getElementById('transferenciaBanco').value = savedMethod.data.banco || '';
+                    document.getElementById('transferenciaBeneficiario').value = savedMethod.data.beneficiario || '';
+                }
+                document.getElementById('saveMethodContainer').style.display = 'block';
+            }
+            
             new bootstrap.Modal(document.getElementById('paymentModal')).show();
         }
     } catch (error) {
@@ -1667,22 +1864,77 @@ async function openPaymentModal(sessionId) {
 
 document.getElementById('confirmPaymentBtn')?.addEventListener('click', async () => {
     try {
+        const method = document.getElementById('paymentMethod').value;
+        
+        if (!method) {
+            window.showToast.warning('Método requerido', 'Por favor selecciona un método de pago');
+            return;
+        }
+        
+        let isValid = false;
+        let paymentData = {
+            sessionId: currentSessionId,
+            paymentMethod: method
+        };
+        
+        // Validar según el método seleccionado
+        if (method === 'tarjeta') {
+            isValid = PaymentValidations.validarTarjeta();
+            if (isValid) {
+                paymentData.paymentDetails = {
+                    nombre: document.getElementById('tarjetaNombre').value,
+                    numero: document.getElementById('tarjetaNumero').value.replace(/\s/g, ''),
+                    fecha: document.getElementById('tarjetaFecha').value,
+                    cvv: document.getElementById('tarjetaCvv').value
+                };
+            }
+        } else if (method === 'wallet') {
+            isValid = PaymentValidations.validarWallet();
+            if (isValid) {
+                paymentData.paymentDetails = {
+                    email: document.getElementById('walletEmail').value,
+                    tipo: document.getElementById('walletTipo').value
+                };
+            }
+        } else if (method === 'transferencia') {
+            isValid = PaymentValidations.validarTransferencia();
+            if (isValid) {
+                paymentData.paymentDetails = {
+                    clabe: document.getElementById('transferenciaClabe').value.replace(/\s/g, ''),
+                    banco: document.getElementById('transferenciaBanco').value,
+                    beneficiario: document.getElementById('transferenciaBeneficiario').value
+                };
+            }
+        }
+        
+        if (!isValid) {
+            return;
+        }
+        
+        // Guardar método si está marcado
+        if (document.getElementById('guardarMetodo').checked) {
+            PaymentStorage.saveMethod(method, paymentData.paymentDetails);
+        }
+        
+        // Procesar pago
         const response = await fetchWithAuth('/api/payments/process', {
             method: 'POST',
-            body: JSON.stringify({
-                sessionId: currentSessionId,
-                paymentMethod: document.getElementById('paymentMethod').value
-            })
+            body: JSON.stringify(paymentData)
         });
         
-        if ((await response.json()).success) {
+        const result = await response.json();
+        
+        if (result.success) {
             bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+            window.showToast.success('¡Pago exitoso!', 'Tu transacción se ha procesado correctamente');
             loadSessions();
             loadOverview();
-            alert('Pago procesado exitosamente');
+        } else {
+            window.showToast.error('Error en el pago', result.message || 'No se pudo procesar el pago');
         }
     } catch (error) {
         console.error('Error:', error);
+        window.showToast.error('Error', 'Hubo un problema al procesar el pago');
     }
 });
 

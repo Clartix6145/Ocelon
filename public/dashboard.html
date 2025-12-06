@@ -483,7 +483,7 @@
 
     <!-- Modal: Procesar Pago -->
     <div class="modal fade" id="paymentModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -498,10 +498,109 @@
                         <div class="mb-3">
                             <label class="form-label">Método de Pago</label>
                             <select class="form-control" id="paymentMethod" required>
+                                <option value="">-- Selecciona un método --</option>
                                 <option value="tarjeta">Tarjeta de Crédito/Débito</option>
                                 <option value="wallet">Wallet Digital</option>
-                                <option value="transferencia">Transferencia</option>
+                                <option value="transferencia">Transferencia Bancaria</option>
                             </select>
+                        </div>
+
+                        <!-- FORMULARIO TARJETA -->
+                        <div id="tarjetaForm" class="payment-method-form" style="display: none;">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Datos de Tarjeta</strong> - Datos de práctica (para pruebas)
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Nombre del Titular</label>
+                                <input type="text" class="form-control" id="tarjetaNombre" placeholder="Juan Pérez García">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Número de Tarjeta</label>
+                                <input type="text" class="form-control" id="tarjetaNumero" placeholder="1234 5678 9012 3456" maxlength="19" inputmode="numeric">
+                                <small class="text-muted">16 dígitos</small>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Fecha de Caducidad</label>
+                                    <input type="text" class="form-control" id="tarjetaFecha" placeholder="MM/YY" maxlength="5">
+                                    <small class="text-muted">Máximo 5 años desde hoy</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">CVV</label>
+                                    <input type="text" class="form-control" id="tarjetaCvv" placeholder="123" maxlength="4" inputmode="numeric">
+                                    <small class="text-muted">3 o 4 dígitos</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FORMULARIO WALLET -->
+                        <div id="walletForm" class="payment-method-form" style="display: none;">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Wallet Digital</strong> - Billetera electrónica
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email o Usuario</label>
+                                <input type="email" class="form-control" id="walletEmail" placeholder="usuario@ejemplo.com">
+                                <small class="text-muted">Tu correo registrado en el wallet</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Contraseña del Wallet</label>
+                                <input type="password" class="form-control" id="walletPassword" placeholder="••••••••">
+                                <small class="text-muted">Se utiliza solo para esta transacción</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tipo de Wallet</label>
+                                <select class="form-control" id="walletTipo">
+                                    <option value="paypal">PayPal</option>
+                                    <option value="google-pay">Google Pay</option>
+                                    <option value="apple-pay">Apple Pay</option>
+                                    <option value="otros">Otros</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- FORMULARIO TRANSFERENCIA -->
+                        <div id="transferenciaForm" class="payment-method-form" style="display: none;">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Transferencia Bancaria</strong> - Transferencia directa entre cuentas
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">CLABE</label>
+                                <input type="text" class="form-control" id="transferenciaClabe" placeholder="002010077512030994" maxlength="18" inputmode="numeric">
+                                <small class="text-muted">18 dígitos</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Banco</label>
+                                <select class="form-control" id="transferenciaBanco">
+                                    <option value="">-- Selecciona un banco --</option>
+                                    <option value="banamex">Banamex</option>
+                                    <option value="bbva">BBVA México</option>
+                                    <option value="santander">Santander</option>
+                                    <option value="hsbc">HSBC</option>
+                                    <option value="scotiabank">Scotiabank</option>
+                                    <option value="inbursa">Inbursa</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Nombre del Beneficiario</label>
+                                <input type="text" class="form-control" id="transferenciaBeneficiario" placeholder="Juan Pérez García">
+                            </div>
+                        </div>
+
+                        <!-- OPCIÓN DE GUARDAR -->
+                        <div id="saveMethodContainer" class="form-check mb-3" style="display: none;">
+                            <input class="form-check-input" type="checkbox" id="guardarMetodo" checked>
+                            <label class="form-check-label" for="guardarMetodo">
+                                Guardar este método de pago para próximas transacciones
+                            </label>
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-shield-alt me-1"></i>
+                                Tus datos se guardarán de forma segura en tu navegador
+                            </small>
                         </div>
                     </form>
                 </div>
