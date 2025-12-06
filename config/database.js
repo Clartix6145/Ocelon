@@ -61,6 +61,9 @@ const createIndexes = async () => {
     await db.collection("payments").createIndex({ sessionId: 1 });
     await db.collection("payments").createIndex({ transactionId: 1 }, { unique: true });
     await db.collection("support_tickets").createIndex({ status: 1, priority: -1 });
+    await db.collection("plan_purchases").createIndex({ userId: 1, createdAt: -1 });
+    await db.collection("plan_purchases").createIndex({ createdAt: -1 });
+    await db.collection("plan_purchases").createIndex({ plan: 1 });
     console.log("Índices de base de datos creados");
   } catch (error) {
     console.error("Error al crear índices:", error);

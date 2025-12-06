@@ -783,6 +783,52 @@ function getCurrentPlan() {
 function savePlan(plan, discount) {
     const planData = { plan: plan, discount: discount, savedAt: new Date().toISOString() };
     localStorage.setItem(`ocelon_current_plan_${userId}`, JSON.stringify(planData));
+    
+    // Guardar también en el servidor
+    savePlanToServer(plan, discount);
+}
+
+// Guardar plan en el servidor
+async function savePlanToServer(plan, discount) {
+    try {
+        const planPrices = {
+            'basico': 0,
+            'premium': 99,
+            'empresarial': 299
+        };
+        
+        const response = await fetchWithAuth('/api/users/plan', {
+            method: 'POST',
+            body: JSON.stringify({
+                plan: plan,
+                discount: discount,
+                price: planPrices[plan] || 0
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            console.log('Plan guardado en servidor:', data);
+            
+            // Disparar evento para que se actualicen los gráficos del admin
+            const event = new CustomEvent('planPurchased', {
+                detail: {
+                    plan: plan,
+                    price: planPrices[plan] || 0,
+                    discount: discount
+                }
+            });
+            document.dispatchEvent(event);
+            
+            return true;
+        } else {
+            console.error('Error al guardar plan:', data.message);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error al guardar plan en servidor:', error);
+        return false;
+    }
 }
 
 // Calcular descuento en el total

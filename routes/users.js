@@ -88,4 +88,66 @@ router.get('/:id/history', authenticateToken, async (req, res) => {
     }
 });
 
+// ========================================
+// COMPRA DE PLANES
+// ========================================
+
+router.post('/plan', authenticateToken, async (req, res) => {
+    try {
+        const { plan, discount, price } = req.body;
+        const userId = req.user.userId;
+        const db = getDB();
+
+        if (!plan || discount === undefined || !price) {
+            return res.status(400).json({
+                success: false,
+                message: 'Plan, descuento y precio son requeridos'
+            });
+        }
+
+        // Crear documento de compra de plan
+        const planPurchase = {
+            userId: new ObjectId(userId),
+            plan: plan,
+            discount: discount,
+            price: price,
+            createdAt: new Date(),
+            status: 'activo'
+        };
+
+        // Guardar en colección plan_purchases
+        const result = await db.collection('plan_purchases').insertOne(planPurchase);
+
+        // Actualizar el plan actual del usuario
+        await db.collection('users').updateOne(
+            { _id: new ObjectId(userId) },
+            { 
+                $set: { 
+                    currentPlan: plan,
+                    planDiscount: discount,
+                    planUpdatedAt: new Date()
+                }
+            }
+        );
+
+        res.json({
+            success: true,
+            message: 'Plan comprado exitosamente',
+            data: {
+                purchaseId: result.insertedId,
+                plan: plan,
+                discount: discount,
+                price: price
+            }
+        });
+    } catch (error) {
+        console.error('Error al comprar plan:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al comprar plan',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

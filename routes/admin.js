@@ -154,6 +154,20 @@ router.get('/analytics', authenticateToken, authorizeRoles('admin'), async (req,
             }
         ]).toArray();
 
+        // Distribución de planes
+        const plansDistribution = await db.collection('plan_purchases').aggregate([
+            {
+                $group: {
+                    _id: '$plan',
+                    count: { $sum: 1 },
+                    totalRevenue: { $sum: '$price' }
+                }
+            },
+            {
+                $sort: { count: -1 }
+            }
+        ]).toArray();
+
         res.json({
             success: true,
             data: {
@@ -167,7 +181,8 @@ router.get('/analytics', authenticateToken, authorizeRoles('admin'), async (req,
                 revenueByParking,
                 sessionsByDay,
                 paymentMethods,
-                ticketsByStatus
+                ticketsByStatus,
+                plansDistribution
             }
         });
     } catch (error) {
@@ -802,6 +817,173 @@ router.get('/tickets/stats', authenticateToken, authorizeRoles('admin'), async (
         res.status(500).json({
             success: false,
             message: 'Error al obtener estadísticas',
+            error: error.message
+        });
+    }
+});
+
+// ========================================
+// PLANES - ANALYTICS
+// ========================================
+
+// Obtener planes comprados del mes
+router.get('/plans-month', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    try {
+        const db = getDB();
+        
+        // Calcular inicio y fin del mes actual
+        const today = new Date();
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        
+        const plans = await db.collection('plan_purchases').aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'userId',
+                    foreignField: '_id',
+                    as: 'user'
+                }
+            },
+            {
+                $unwind: '$user'
+            },
+            {
+                $addFields: {
+                    userName: {
+                        $cond: [
+                            { $ne: ['$user.profile.nombre', null] },
+                            '$user.profile.nombre',
+                            { $split: ['$user.email', '@'] }
+                        ]
+                    }
+                }
+            },
+            {
+                $sort: { createdAt: -1 }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    plan: 1,
+                    price: 1,
+                    discount: 1,
+                    createdAt: 1,
+                    userEmail: '$user.email',
+                    userName: 1
+                }
+            }
+        ]).toArray();
+        
+        res.json({
+            success: true,
+            data: plans
+        });
+    } catch (error) {
+        console.error('Error al obtener planes del mes:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener planes del mes',
+            error: error.message
+        });
+    }
+});
+
+// Calcular ingresos mensuales incluyendo planes
+router.get('/monthly-revenue', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    try {
+        const db = getDB();
+        
+        // Calcular inicio y fin del mes actual
+        const today = new Date();
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        
+        // Ingresos de pagos de sesiones
+        const paymentRevenue = await db.collection('payments').aggregate([
+            {
+                $match: {
+                    timestamp: { $gte: startOfMonth, $lte: endOfMonth },
+                    status: 'exitoso'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$amount' }
+                }
+            }
+        ]).toArray();
+        
+        // Ingresos de planes
+        const plansRevenue = await db.collection('plan_purchases').aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$price' }
+                }
+            }
+        ]).toArray();
+        
+        const paymentTotal = paymentRevenue.length > 0 ? paymentRevenue[0].total : 0;
+        const plansTotal = plansRevenue.length > 0 ? plansRevenue[0].total : 0;
+        const totalRevenue = paymentTotal + plansTotal;
+        
+        res.json({
+            success: true,
+            data: {
+                paymentRevenue: paymentTotal,
+                plansRevenue: plansTotal,
+                totalRevenue: totalRevenue
+            }
+        });
+    } catch (error) {
+        console.error('Error al calcular ingresos mensuales:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al calcular ingresos mensuales',
+            error: error.message
+        });
+    }
+});
+
+// Obtener distribución de planes
+router.get('/plans-distribution', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    try {
+        const db = getDB();
+        
+        const distribution = await db.collection('plan_purchases').aggregate([
+            {
+                $group: {
+                    _id: '$plan',
+                    count: { $sum: 1 },
+                    totalRevenue: { $sum: '$price' }
+                }
+            },
+            {
+                $sort: { count: -1 }
+            }
+        ]).toArray();
+        
+        res.json({
+            success: true,
+            data: distribution
+        });
+    } catch (error) {
+        console.error('Error al obtener distribución de planes:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener distribución de planes',
             error: error.message
         });
     }

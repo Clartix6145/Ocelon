@@ -119,8 +119,38 @@
         </div>
         <div class="col-12 col-lg-6">
           <div class="card">
+            <div class="card-header">Planes Más Usados</div>
+            <div class="card-body"><canvas id="plansChart"></canvas></div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="card">
             <div class="card-header">Tickets por Estado</div>
             <div class="card-body"><canvas id="ticketsChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Planes Comprados del Mes -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Planes Comprados Este Mes</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover" id="plansTableMonth">
+              <thead class="table-light">
+                <tr>
+                  <th>Usuario</th>
+                  <th>Plan</th>
+                  <th>Ingreso</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody id="plansTableMonthBody">
+                <tr><td colspan="4" class="text-center text-muted">Cargando datos...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

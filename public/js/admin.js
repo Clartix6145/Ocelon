@@ -174,7 +174,10 @@ console.log('activeSessions:', document.getElementById('activeSessions'));
             renderRevenueChart(result.data.revenueByParking);
             renderSessionsChart(result.data.sessionsByDay);
             renderPaymentMethodsChart(result.data.paymentMethods);
+            renderPlansChart(result.data.plansDistribution);
             renderTicketsChart(result.data.ticketsByStatus);
+            loadPlansTableMonth();
+            updateMonthlyRevenueWithPlans();
         } else {
             showError('Error al cargar dashboard: ' + result.message);
         }
@@ -1213,6 +1216,194 @@ function startAutoRefresh() {
 
 window.exportToExcel = function() {
     showNotification('Exportación a Excel en desarrollo', 'info');
-};
+}
+
+// ========================================
+// GRÁFICA Y TABLA DE PLANES
+// ========================================
+
+function renderPlansChart(data) {
+    const ctx = document.getElementById('plansChart');
+    if (!ctx) return;
+    
+    if (charts.plans) {
+        charts.plans.destroy();
+    }
+    
+    // Si no hay datos, mostrar mensaje
+    if (!data || data.length === 0) {
+        const parent = ctx.parentElement;
+        parent.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-chart-pie fa-3x mb-3"></i><br>No hay datos de planes disponibles</div>';
+        return;
+    }
+    
+    const colors = {
+        'basico': 'rgba(107, 114, 128, 0.8)',
+        'premium': 'rgba(59, 130, 246, 0.8)',
+        'empresarial': 'rgba(139, 92, 246, 0.8)'
+    };
+    
+    const labels = {
+        'basico': 'Básico',
+        'premium': 'Premium',
+        'empresarial': 'Empresarial'
+    };
+    
+    charts.plans = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.map(d => labels[d._id] || d._id),
+            datasets: [{
+                data: data.map(d => d.count),
+                backgroundColor: data.map(d => colors[d._id] || 'rgba(0,0,0,0.5)')
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: { size: 12 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.parsed;
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return context.label + ': ' + value + ' usuarios (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Recargar gráfica de planes (con datos del servidor)
+async function refreshPlansChart() {
+    try {
+        const response = await fetch('/api/admin/plans-distribution', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            renderPlansChart(result.data);
+        }
+    } catch (error) {
+        console.error('Error al actualizar gráfica de planes:', error);
+    }
+}
+
+// Cargar tabla de planes comprados del mes
+async function loadPlansTableMonth() {
+    try {
+        const response = await fetch('/api/admin/plans-month', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            renderPlansTableMonth(result.data);
+        }
+    } catch (error) {
+        console.error('Error al cargar planes del mes:', error);
+    }
+}
+
+function renderPlansTableMonth(plans) {
+    const tbody = document.getElementById('plansTableMonthBody');
+    
+    if (!plans || plans.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay planes comprados este mes</td></tr>';
+        return;
+    }
+    
+    const planNames = {
+        'basico': 'Básico',
+        'premium': 'Premium ($99)',
+        'empresarial': 'Empresarial ($299)'
+    };
+    
+    tbody.innerHTML = plans.map(plan => `
+        <tr>
+            <td>
+                <small>${plan.userName || 'Usuario'}</small>
+                <br><span class="text-muted" style="font-size: 0.8em;">${plan.userEmail || ''}</span>
+            </td>
+            <td>
+                <span class="badge bg-info">${planNames[plan.plan] || plan.plan}</span>
+            </td>
+            <td>
+                <strong class="text-success">$${plan.price || 0}</strong>
+            </td>
+            <td>
+                <small class="text-muted">${new Date(plan.createdAt).toLocaleDateString('es-MX')}</small>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Actualizar ingresos mensuales incluyendo planes
+async function updateMonthlyRevenueWithPlans() {
+    try {
+        const response = await fetch('/api/admin/monthly-revenue', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const monthlyRevenueEl = document.getElementById('monthlyRevenue');
+            if (monthlyRevenueEl) {
+                monthlyRevenueEl.textContent = formatCurrency(result.data.totalRevenue || 0);
+            }
+        }
+    } catch (error) {
+        console.error('Error al actualizar ingresos mensuales:', error);
+    }
+}
+
+// ========================================
+// ACTUALIZACIÓN EN TIEMPO REAL
+// ========================================
+
+// Escuchar evento de compra de plan desde el dashboard
+document.addEventListener('planPurchased', async (event) => {
+    console.log('Evento de compra de plan recibido:', event.detail);
+    
+    // Pequeña pausa para asegurar que MongoDB haya guardado
+    setTimeout(async () => {
+        // Recargar todos los gráficos y tablas de planes
+        await refreshPlansChart();
+        await loadPlansTableMonth();
+        await updateMonthlyRevenueWithPlans();
+    }, 500);
+});
+
+// Función para recargar gráficos de planes
+async function refreshPlansData() {
+    try {
+        await refreshPlansChart();
+        await loadPlansTableMonth();
+        await updateMonthlyRevenueWithPlans();
+        console.log('Datos de planes actualizados en tiempo real');
+    } catch (error) {
+        console.error('Error al actualizar datos de planes:', error);
+    }
+}
 
 console.log('Admin panel loaded successfully');
