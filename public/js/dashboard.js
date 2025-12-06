@@ -164,6 +164,9 @@ document.querySelectorAll('.sidebar-link').forEach(link => {
             case 'analytics':
                 loadAnalytics();
                 break;
+            case 'promotions':
+                loadPromotions();
+                break;
             case 'profile':
                 loadProfile();
                 break;
@@ -412,38 +415,58 @@ function renderSessionsTable(sessions) {
         return;
     }
     
-    tableBody.innerHTML = sessions.map(session => `
-        <tr>
-            <td><code class="text-primary">${session.qrCode.substring(0, 12)}...</code></td>
-            <td><strong>${session.parkingLotName}</strong></td>
-            <td>${formatDate(session.entryTime)}</td>
-            <td>${session.exitTime ? formatDate(session.exitTime) : '<span class="badge badge-warning">En estacionamiento</span>'}</td>
-            <td><span class="badge badge-${getStatusColor(session.status)}">${session.status.toUpperCase()}</span></td>
-            <td><strong>${session.amount ? formatCurrency(session.amount) : '<span class="text-muted">Pendiente</span>'}</strong></td>
-            <td>
-                <div class="action-buttons">
-                    ${session.status === 'activa' ? `
-                        <button class="btn-action btn-action-pay" onclick="openPaymentModal('${session._id}')" title="Pagar Estancia">
-                            <i class="fas fa-credit-card"></i>
+    tableBody.innerHTML = sessions.map(session => {
+        const currentPlan = getCurrentPlan();
+        let amountDisplay = '<span class="text-muted">Pendiente</span>';
+        
+        if (session.amount) {
+            const discountInfo = applyPlanDiscount(session.amount);
+            if (currentPlan.discount > 0) {
+                amountDisplay = `
+                    <div style="font-size: 0.85em;">
+                        <del class="text-muted">${formatCurrency(discountInfo.original)}</del>
+                        <strong class="text-success">${formatCurrency(discountInfo.final)}</strong>
+                        <small class="text-success">(${discountInfo.discountPercentage}% desc.)</small>
+                    </div>
+                `;
+            } else {
+                amountDisplay = `<strong>${formatCurrency(session.amount)}</strong>`;
+            }
+        }
+        
+        return `
+            <tr>
+                <td><code class="text-primary">${session.qrCode.substring(0, 12)}...</code></td>
+                <td><strong>${session.parkingLotName}</strong></td>
+                <td>${formatDate(session.entryTime)}</td>
+                <td>${session.exitTime ? formatDate(session.exitTime) : '<span class="badge badge-warning">En estacionamiento</span>'}</td>
+                <td><span class="badge badge-${getStatusColor(session.status)}">${session.status.toUpperCase()}</span></td>
+                <td>${amountDisplay}</td>
+                <td>
+                    <div class="action-buttons">
+                        ${session.status === 'activa' ? `
+                            <button class="btn-action btn-action-pay" onclick="openPaymentModal('${session._id}')" title="Pagar Estancia">
+                                <i class="fas fa-credit-card"></i>
+                            </button>
+                        ` : ''}
+                        ${session.status === 'pagada' ? `
+                            <button class="btn-action btn-action-success" onclick="validateExit('${session._id}')" title="Validar Salida">
+                                <i class="fas fa-check-circle"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn-action btn-action-view" onclick="viewSessionDetail('${session._id}')" title="Ver Detalles">
+                            <i class="fas fa-eye"></i>
                         </button>
-                    ` : ''}
-                    ${session.status === 'pagada' ? `
-                        <button class="btn-action btn-action-success" onclick="validateExit('${session._id}')" title="Validar Salida">
-                            <i class="fas fa-check-circle"></i>
-                        </button>
-                    ` : ''}
-                    <button class="btn-action btn-action-view" onclick="viewSessionDetail('${session._id}')" title="Ver Detalles">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    ${session.status === 'finalizada' ? `
-                        <button class="btn-action btn-action-download" onclick="downloadTicket('${session._id}')" title="Descargar Ticket">
-                            <i class="fas fa-download"></i>
-                        </button>
-                    ` : ''}
-                </div>
-            </td>
-        </tr>
-    `).join('');
+                        ${session.status === 'finalizada' ? `
+                            <button class="btn-action btn-action-download" onclick="downloadTicket('${session._id}')" title="Descargar Ticket">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 // Nueva sesión
@@ -737,6 +760,109 @@ function getPaymentMethodIcon(method) {
         'efectivo': 'money-bill-wave'
     };
     return icons[method] || 'dollar-sign';
+}
+
+// ========================================
+// GESTIÓN DE PLANES Y PROMOCIONES
+// ========================================
+
+// Planes disponibles con sus descuentos
+const Plans = {
+    basico: { name: 'Básico', discount: 0, price: 0 },
+    premium: { name: 'Premium', discount: 15, price: 99 },
+    empresarial: { name: 'Empresarial', discount: 25, price: 299 }
+};
+
+// Obtener plan actual del usuario
+function getCurrentPlan() {
+    const saved = localStorage.getItem(`ocelon_current_plan_${userId}`);
+    return saved ? JSON.parse(saved) : { plan: 'basico', discount: 0 };
+}
+
+// Guardar plan del usuario
+function savePlan(plan, discount) {
+    const planData = { plan: plan, discount: discount, savedAt: new Date().toISOString() };
+    localStorage.setItem(`ocelon_current_plan_${userId}`, JSON.stringify(planData));
+}
+
+// Calcular descuento en el total
+function applyPlanDiscount(total) {
+    const currentPlan = getCurrentPlan();
+    const discountAmount = total * (currentPlan.discount / 100);
+    return {
+        original: total,
+        discount: discountAmount,
+        final: total - discountAmount,
+        discountPercentage: currentPlan.discount
+    };
+}
+
+// Cargar y mostrar promociones
+function loadPromotions() {
+    const currentPlan = getCurrentPlan();
+    
+    // Mostrar alerta de plan actual
+    if (currentPlan.plan !== 'basico') {
+        document.getElementById('currentPlanAlert').style.display = 'block';
+        document.getElementById('currentPlanName').textContent = Plans[currentPlan.plan].name;
+        document.getElementById('currentPlanDiscount').textContent = currentPlan.discount + '%';
+    }
+    
+    // Actualizar botones de planes
+    updatePlanButtons(currentPlan.plan);
+}
+
+// Actualizar estados de botones de planes
+function updatePlanButtons(currentPlanName) {
+    // Restablecer todos los botones
+    document.getElementById('basicButtonText').textContent = 'Elegir Plan';
+    document.getElementById('premiumButtonText').textContent = 'Elegir Premium';
+    document.getElementById('empresarialButtonText').textContent = 'Elegir Empresarial';
+    
+    // Desactivar el botón del plan actual
+    if (currentPlanName === 'basico') {
+        document.getElementById('basicButtonText').textContent = 'Plan Actual';
+        document.querySelector('[onclick="selectPlan(\'basico\', 0)"]').disabled = true;
+    } else if (currentPlanName === 'premium') {
+        document.getElementById('premiumButtonText').textContent = 'Plan Actual';
+        document.querySelector('[onclick="selectPlan(\'premium\', 15)"]').disabled = true;
+    } else if (currentPlanName === 'empresarial') {
+        document.getElementById('empresarialButtonText').textContent = 'Plan Actual';
+        document.querySelector('[onclick="selectPlan(\'empresarial\', 25)"]').disabled = true;
+    }
+}
+
+// Seleccionar un plan
+function selectPlan(planName, discount) {
+    const currentPlan = getCurrentPlan();
+    
+    // Si es el plan actual, no hacer nada
+    if (currentPlan.plan === planName) {
+        window.showToast.warning('Plan Actual', 'Ya tienes este plan activo');
+        return;
+    }
+    
+    // Si ya tiene un plan y quiere cambiar, mostrar confirmación
+    if (currentPlan.plan !== 'basico') {
+        showCustomConfirm(
+            '¿Cambiar de Plan?',
+            `¿Estás seguro de cambiar de ${Plans[currentPlan.plan].name} a ${Plans[planName].name}? Los beneficios se aplicarán en tus próximos pagos.`,
+            'Cambiar Plan',
+            'Cancelar'
+        ).then(confirmed => {
+            if (confirmed) {
+                savePlan(planName, discount);
+                window.showToast.success('¡Plan Actualizado!', `Has cambiado a ${Plans[planName].name}. El descuento del ${discount}% se aplicará en tus próximos pagos.`);
+                loadPromotions();
+                loadSessions();
+            }
+        });
+    } else {
+        // Si está en plan básico, cambiar sin confirmación
+        savePlan(planName, discount);
+        window.showToast.success('¡Plan Activado!', `Has activado ${Plans[planName].name}. El descuento del ${discount}% se aplicará en tus próximos pagos.`);
+        loadPromotions();
+    }
 }
 
 // ========================================
@@ -1810,16 +1936,26 @@ async function openPaymentModal(sessionId) {
             const subtotal = duration * session.tarifaHora;
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
+            const currentPlan = getCurrentPlan();
+            const discountInfo = applyPlanDiscount(total);
             
-            document.getElementById('paymentDetails').innerHTML = `
+            let paymentDetailsHtml = `
                 <div class="alert alert-info">
                     <p class="mb-2"><strong>Duración:</strong> ${duration} hora(s)</p>
                     <p class="mb-2"><strong>Tarifa:</strong> ${formatCurrency(session.tarifaHora)}/hora</p>
                     <p class="mb-2"><strong>Subtotal:</strong> ${formatCurrency(subtotal)}</p>
                     <p class="mb-2"><strong>IVA (16%):</strong> ${formatCurrency(iva)}</p>
-                    <p class="mb-0"><strong class="text-primary">Total:</strong> <span class="text-primary fs-4">${formatCurrency(total)}</span></p>
+                    ${currentPlan.discount > 0 ? `
+                        <p class="mb-2" style="background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 5px; margin: 5px 0;">
+                            <strong class="text-success"><i class="fas fa-tag me-2"></i>Descuento ${currentPlan.discount}% (${Plans[currentPlan.plan].name}):</strong> 
+                            <span class="text-success">-${formatCurrency(discountInfo.discount)}</span>
+                        </p>
+                    ` : ''}
+                    <p class="mb-0"><strong class="text-primary">Total a Pagar:</strong> <span class="text-primary fs-4">${formatCurrency(discountInfo.final)}</span></p>
                 </div>
             `;
+            
+            document.getElementById('paymentDetails').innerHTML = paymentDetailsHtml;
             
             // Limpiar formulario
             document.getElementById('paymentForm').reset();
@@ -2192,10 +2328,31 @@ async function viewSessionDetail(sessionId) {
                                                 <span>IVA (16%)</span>
                                                 <strong>${formatCurrency(iva)}</strong>
                                             </div>
+                                            ${(() => {
+                                                const currentPlan = getCurrentPlan();
+                                                if (currentPlan.discount > 0) {
+                                                    const discountInfo = applyPlanDiscount(total);
+                                                    return `
+                                                        <div style="background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                                            <div class="d-flex justify-content-between mb-2">
+                                                                <span class="text-success"><i class="fas fa-tag me-2"></i>Descuento ${currentPlan.discount}% (${Plans[currentPlan.plan].name})</span>
+                                                                <strong class="text-success">-${formatCurrency(discountInfo.discount)}</strong>
+                                                            </div>
+                                                        </div>
+                                                    `;
+                                                }
+                                                return '';
+                                            })()}
                                             <hr class="my-2">
                                             <div class="d-flex justify-content-between">
                                                 <span class="fs-5"><strong>Total</strong></span>
-                                                <span class="fs-5 text-primary"><strong>${formatCurrency(total)}</strong></span>
+                                                <span class="fs-5 text-primary"><strong>${formatCurrency((() => {
+                                                    const currentPlan = getCurrentPlan();
+                                                    if (currentPlan.discount > 0) {
+                                                        return applyPlanDiscount(total).final;
+                                                    }
+                                                    return total;
+                                                })())}</strong></span>
                                             </div>
                                         </div>
                                     </div>
@@ -2481,6 +2638,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createParkingUsageChart();
 
     loadOverview(); // ← ahora sí puedes actualizarlas
+    loadPromotions(); // Cargar promociones al iniciar
     
     console.log('%cOcelon Dashboard', 'color: #10b981; font-size: 20px; font-weight: bold;');
     console.log('%cLoaded successfully', 'color: #6366f1; font-size: 12px;');

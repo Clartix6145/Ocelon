@@ -112,6 +112,10 @@
                     <i class="fas fa-chart-pie"></i>
                     <span>Analíticas</span>
                 </a>
+                <a href="#" class="sidebar-link" data-section="promotions">
+                    <i class="fas fa-tags"></i>
+                    <span>Promociones</span>
+                </a>
             </div>
             
             <!-- Gestión -->
@@ -380,6 +384,91 @@
                                     <canvas id="parkingUsageChart"></canvas>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: Promociones -->
+            <div id="promotionsSection" class="dashboard-section" style="display: none;">
+                <div class="page-header">
+                    <h1 class="page-title">
+                        <i class="fas fa-tags text-primary me-2"></i>
+                        Promociones y Planes
+                    </h1>
+                    <p class="page-subtitle">Elige el plan que mejor se adapte a tus necesidades y obtén descuentos</p>
+                </div>
+
+                <div id="currentPlanAlert" class="alert alert-info mb-4" style="display: none;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Plan Actual:</strong> <span id="currentPlanName">Básico</span> - 
+                    Descuento: <span id="currentPlanDiscount">0%</span>
+                </div>
+
+                <div class="row g-4 justify-content-center">
+                    <!-- Plan Básico -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="pricing-card" id="basicPlanCard">
+                            <h3 class="pricing-name">Básico</h3>
+                            <div class="pricing-price">
+                                <span class="pricing-amount">$0</span>
+                                <span class="pricing-period">/mes</span>
+                            </div>
+                            <ul class="pricing-features">
+                                <li><i class="fas fa-check-circle"></i> Acceso a estacionamientos</li>
+                                <li><i class="fas fa-check-circle"></i> Pago por uso</li>
+                                <li><i class="fas fa-check-circle"></i> Historial de 30 días</li>
+                                <li><i class="fas fa-check-circle"></i> Soporte por email</li>
+                                <li style="opacity: 0.3;"><i class="fas fa-times-circle"></i> Descuentos exclusivos</li>
+                                <li style="opacity: 0.3;"><i class="fas fa-times-circle"></i> Reserva anticipada</li>
+                            </ul>
+                            <button class="btn btn-outline-ocelon w-100" onclick="selectPlan('basico', 0)">
+                                <span id="basicButtonText">Plan Actual</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Plan Premium -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="pricing-card featured" id="premiumPlanCard">
+                            <h3 class="pricing-name">Premium</h3>
+                            <div class="pricing-price">
+                                <span class="pricing-amount">$99</span>
+                                <span class="pricing-period">/mes</span>
+                            </div>
+                            <ul class="pricing-features">
+                                <li><i class="fas fa-check-circle"></i> Todo en Básico</li>
+                                <li><i class="fas fa-check-circle text-success"></i> <strong>15% de descuento</strong></li>
+                                <li><i class="fas fa-check-circle"></i> Reserva anticipada</li>
+                                <li><i class="fas fa-check-circle"></i> Historial ilimitado</li>
+                                <li><i class="fas fa-check-circle"></i> Soporte prioritario</li>
+                                <li><i class="fas fa-check-circle"></i> Reportes avanzados</li>
+                            </ul>
+                            <button class="btn btn-ocelon w-100" onclick="selectPlan('premium', 15)">
+                                <span id="premiumButtonText">Elegir Premium</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Plan Empresarial -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="pricing-card" id="empresarialPlanCard">
+                            <h3 class="pricing-name">Empresarial</h3>
+                            <div class="pricing-price">
+                                <span class="pricing-amount">$299</span>
+                                <span class="pricing-period">/mes</span>
+                            </div>
+                            <ul class="pricing-features">
+                                <li><i class="fas fa-check-circle"></i> Todo en Premium</li>
+                                <li><i class="fas fa-check-circle text-success"></i> <strong>25% de descuento</strong></li>
+                                <li><i class="fas fa-check-circle"></i> Cuentas múltiples</li>
+                                <li><i class="fas fa-check-circle"></i> API de integración</li>
+                                <li><i class="fas fa-check-circle"></i> Gerente de cuenta</li>
+                                <li><i class="fas fa-check-circle"></i> SLA garantizado</li>
+                            </ul>
+                            <button class="btn btn-outline-ocelon w-100" onclick="selectPlan('empresarial', 25)">
+                                <span id="empresarialButtonText">Elegir Empresarial</span>
+                            </button>
                         </div>
                     </div>
                 </div>
