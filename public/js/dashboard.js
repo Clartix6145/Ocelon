@@ -779,6 +779,30 @@ function getCurrentPlan() {
     return saved ? JSON.parse(saved) : { plan: 'basico', discount: 0 };
 }
 
+// Cargar plan desde el servidor (se ejecuta al iniciar dashboard)
+async function loadUserPlanFromServer() {
+    try {
+        const response = await fetchWithAuth(`/api/users/${userId}`);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            const user = data.data;
+            
+            // Si el usuario tiene un plan guardado en el servidor, restaurarlo en localStorage
+            if (user.currentPlan) {
+                const planData = {
+                    plan: user.currentPlan,
+                    discount: user.planDiscount || 0,
+                    savedAt: new Date().toISOString()
+                };
+                localStorage.setItem(`ocelon_current_plan_${userId}`, JSON.stringify(planData));
+            }
+        }
+    } catch (error) {
+        console.error('Error al cargar plan del servidor:', error);
+    }
+}
+
 // Guardar plan del usuario
 function savePlan(plan, discount) {
     const planData = { plan: plan, discount: discount, savedAt: new Date().toISOString() };
@@ -860,21 +884,28 @@ function loadPromotions() {
 
 // Actualizar estados de botones de planes
 function updatePlanButtons(currentPlanName) {
-    // Restablecer todos los botones
+    // Restablecer todos los botones - NUNCA desactivarlos, solo cambiar texto
+    const basicBtn = document.querySelector('[onclick="selectPlan(\'basico\', 0)"]');
+    const premiumBtn = document.querySelector('[onclick="selectPlan(\'premium\', 15)"]');
+    const empresarialBtn = document.querySelector('[onclick="selectPlan(\'empresarial\', 25)"]');
+    
+    // Habilitar todos los botones
+    if (basicBtn) basicBtn.disabled = false;
+    if (premiumBtn) premiumBtn.disabled = false;
+    if (empresarialBtn) empresarialBtn.disabled = false;
+    
+    // Actualizar texto según el plan actual
     document.getElementById('basicButtonText').textContent = 'Elegir Plan';
     document.getElementById('premiumButtonText').textContent = 'Elegir Premium';
     document.getElementById('empresarialButtonText').textContent = 'Elegir Empresarial';
     
-    // Desactivar el botón del plan actual
+    // Solo cambiar texto del botón del plan actual
     if (currentPlanName === 'basico') {
-        document.getElementById('basicButtonText').textContent = 'Plan Actual';
-        document.querySelector('[onclick="selectPlan(\'basico\', 0)"]').disabled = true;
+        document.getElementById('basicButtonText').textContent = '✓ Plan Actual';
     } else if (currentPlanName === 'premium') {
-        document.getElementById('premiumButtonText').textContent = 'Plan Actual';
-        document.querySelector('[onclick="selectPlan(\'premium\', 15)"]').disabled = true;
+        document.getElementById('premiumButtonText').textContent = '✓ Plan Actual';
     } else if (currentPlanName === 'empresarial') {
-        document.getElementById('empresarialButtonText').textContent = 'Plan Actual';
-        document.querySelector('[onclick="selectPlan(\'empresarial\', 25)"]').disabled = true;
+        document.getElementById('empresarialButtonText').textContent = '✓ Plan Actual';
     }
 }
 
@@ -888,11 +919,27 @@ function selectPlan(planName, discount) {
         return;
     }
     
-    // Si ya tiene un plan y quiere cambiar, mostrar confirmación
-    if (currentPlan.plan !== 'basico') {
+    // Si quiere cambiar a otro plan, mostrar confirmación
+    if (planName === 'basico') {
+        // Si cambia a Básico, advertir que perderá descuentos
+        showCustomConfirm(
+            '¿Volver al Plan Básico?',
+            `¿Estás seguro de volver a ${Plans[planName].name}? Perderás todos los beneficios y descuentos.`,
+            'Volver a Básico',
+            'Cancelar'
+        ).then(confirmed => {
+            if (confirmed) {
+                savePlan(planName, discount);
+                window.showToast.info('Plan Cambiado', `Has vuelto a ${Plans[planName].name}. Sin descuentos aplicados.`);
+                loadPromotions();
+                loadSessions();
+            }
+        });
+    } else {
+        // Cambiar a Premium o Empresarial
         showCustomConfirm(
             '¿Cambiar de Plan?',
-            `¿Estás seguro de cambiar de ${Plans[currentPlan.plan].name} a ${Plans[planName].name}? Los beneficios se aplicarán en tus próximos pagos.`,
+            `¿Estás seguro de cambiar de ${Plans[currentPlan.plan].name} a ${Plans[planName].name}? El descuento del ${discount}% se aplicará en tus próximos pagos.`,
             'Cambiar Plan',
             'Cancelar'
         ).then(confirmed => {
@@ -903,11 +950,6 @@ function selectPlan(planName, discount) {
                 loadSessions();
             }
         });
-    } else {
-        // Si está en plan básico, cambiar sin confirmación
-        savePlan(planName, discount);
-        window.showToast.success('¡Plan Activado!', `Has activado ${Plans[planName].name}. El descuento del ${discount}% se aplicará en tus próximos pagos.`);
-        loadPromotions();
     }
 }
 
@@ -2683,6 +2725,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createSpendingChart();
     createParkingUsageChart();
 
+    loadUserPlanFromServer(); // Cargar plan desde el servidor
     loadOverview(); // ← ahora sí puedes actualizarlas
     loadPromotions(); // Cargar promociones al iniciar
     

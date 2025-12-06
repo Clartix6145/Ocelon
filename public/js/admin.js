@@ -526,18 +526,35 @@ async function loadUsers() {
 }
 
 function renderUsersTable(users) {
-    const tbody = document.getElementById('usersTableBody');
+    const tbody = document.getElementById('adminUsersTableBody');
     if (!tbody) return;
     
     if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No hay usuarios</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">No hay usuarios</td></tr>';
         return;
     }
+    
+    const planNames = {
+        'basico': 'Básico',
+        'premium': 'Premium',
+        'empresarial': 'Empresarial'
+    };
+    
+    const planColors = {
+        'basico': 'secondary',
+        'premium': 'primary',
+        'empresarial': 'warning'
+    };
     
     tbody.innerHTML = users.map(user => `
         <tr>
             <td>${user.profile?.nombre || 'N/A'}</td>
             <td>${user.email}</td>
+            <td>
+                <span class="badge bg-${planColors[user.currentPlan] || 'secondary'}">
+                    ${planNames[user.currentPlan] || 'Básico'}
+                </span>
+            </td>
             <td>
                 <span class="badge bg-info">${user.role}</span>
             </td>
